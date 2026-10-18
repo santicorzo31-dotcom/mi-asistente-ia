@@ -20,7 +20,7 @@ H = """<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" co
 #q{flex:1;padding:12px 16px;border-radius:25px;border:1px solid #bbf7d0;outline:none}
 button{border:none;border-radius:25px;padding:10px 10px;cursor:pointer}
 .s{background:#14532d;color:#fff}</style></head><body>
-<div class="h">🌿🙃😎 Soy Sam 👽 FIX</div><div id="c"><div id="m"><div class="i">Arreglado Santi, ahora sí analiza fotos ⚡</div></div>
+<div class="h">🌿🙃😎 Soy Sam 👽 v2.0</div><div id="c"><div id="m"><div class="i">Ya quedó Santi, modelo nuevo 2.0 activado ⚡📷</div></div>
 <div class="b"><button onclick="V()">🎤</button><button onclick="I()">🖼️</button><button onclick="document.getElementById('cam').click()">📷</button>
 <input type="file" id="cam" accept="image/*" capture="environment" style="display:none" onchange="F(this)">
 <input id="q" placeholder="Escribe..." onkeypress="if(event.key==='Enter')E()"><button class="s" onclick="E()">➤</button></div></div>
@@ -60,41 +60,39 @@ def home(): return render_template_string(H)
 def chat():
  try:
   data=request.get_json()
-  m=data.get('message','Hola')
-  img=data.get('image')
-  l=m.lower()
+  m=data.get('message','Hola'); img=data.get('image'); l=m.lower()
 
+  # CREAR IMAGEN
   if any(x in l for x in ["crea una imagen","crea imagen","genera imagen","dibuja","imagen de"]) and not img:
-   p=m
-   for x in ["crea una imagen","crea imagen","genera una imagen","genera imagen","dibuja","haz una imagen","imagen de"]: p=p.lower().replace(x,"")
+   p=m.lower()
+   for x in ["crea una imagen","crea imagen","genera una imagen","genera imagen","dibuja","haz una imagen","imagen de"]: p=p.replace(x,"")
    p=p.strip() or "cute alien"
    url=f"https://image.pollinations.ai/prompt/{urllib.parse.quote(p)}?width=512&height=512&model=turbo&seed={random.randint(1,999999)}"
    return jsonify({"reply":f"Listo! 👽🖼️ **{p}**\n\n![imagen]({url})"})
 
+  # MODELO CORRECTO 2026 - funciona en v1beta
   if img:
    b64=img.split(",")[1] if "," in img else img
-   # MODELO ESTABLE que si existe en todas las keys
-   url=f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={K}"
-   payload={
-    "contents":[{"parts":[
-     {"text": f"Eres Sam. Analiza la foto. {m} Si es tarea explica paso a paso. Usa $...$ para formulas. Max 150 palabras."},
-     {"inline_data":{"mime_type":"image/jpeg","data":b64}}
-    ]}],
-    "generationConfig":{"maxOutputTokens":400}
-   }
+   url=f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={K}"
+   payload={"contents":[{"parts":[{"text": f"Eres Sam. Analiza la foto. {m} Max 150 palabras."},{"inline_data":{"mime_type":"image/jpeg","data":b64}}]}],"generationConfig":{"maxOutputTokens":400}}
    r=S.post(url, json=payload, timeout=30)
    jr=r.json()
    if 'candidates' not in jr:
-     print("ERROR GEMINI:", jr)
-     return jsonify({"reply": f"Error de API: {str(jr)[:200]}"})
+     # Intento 2 con v1
+     url2=f"https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key={K}"
+     r=S.post(url2, json=payload, timeout=30)
+     jr=r.json()
+   if 'candidates' not in jr:
+     return jsonify({"reply": f"Error API: {jr}"})
    t=jr['candidates'][0]['content']['parts'][0]['text']
    return jsonify({"reply":t})
 
-  url=f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={K}"
+  url=f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={K}"
   r=S.post(url, json={"contents":[{"parts":[{"text":f"Eres Sam. Max 150 palabras. Usuario: {m}"}]}],"generationConfig":{"maxOutputTokens":300}}, timeout=15)
-  t=r.json()['candidates'][0]['content']['parts'][0]['text']
+  jr=r.json()
+  t=jr['candidates'][0]['content']['parts'][0]['text']
   return jsonify({"reply":t})
 
  except Exception as e:
-  print("EXCEPTION:", str(e))
-  return jsonify({"reply": f"Error: {str(e)[:200]}"}) 
+  print(e)
+  return jsonify({"reply": f"Error: {str(e)}"})
