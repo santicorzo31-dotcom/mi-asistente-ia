@@ -26,7 +26,7 @@ button{margin-left:10px;padding:12px 20px;background:#14532d;color:white;border:
 button:disabled{opacity:0.5}
 .typing{font-style:italic;color:#a7f3d0}
 </style></head><body>
-<div class="header"><h1>🌿 Mi Asistente IA</h1></div>
+<div class="header"><h1>🌿🙃😎😎 soy Sam - tu ayuda virtual</h1></div>
 <div id="chat"><div id="messages"><div class="msg ia">Hola, ¿qué más? Soy tu asistente personal 😎<br><br>Tareas, cuentos, historia... tú dirás.</div></div>
 <div class="input-area"><input id="msg" placeholder="Escribe tu pregunta..." onkeypress="if(event.key==='Enter')send()"><button id="btn" onclick="send()">Enviar</button></div></div>
 <script>
