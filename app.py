@@ -1,74 +1,30 @@
 import os
 from flask import Flask, request, jsonify, render_template_string
+import google.generativeai as genai
 
 app = Flask(__name__)
 
-HTML = """
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mi Asistente IA</title>
-<style>
-body { font-family: Arial; background:#101114; color:white; padding:20px; }
-h1 { color:#b9a0ff; }
-#chat { max-width:600px; margin:auto; }
-textarea { width:100%; box-sizing:border-box; padding:12px; border-radius:10px; }
-button { padding:12px; background:#9a7bff; border:0; border-radius:10px; margin-top:8px; }
-#respuesta { white-space:pre-wrap; margin-top:20px; }
-</style>
-</head>
-<body>
-<div id="chat">
-<h1>Mi Asistente IA</h1>
-<p>¡Hola! Soy tu asistente personal. ¿En qué te ayudo?</p>
-<textarea id="mensaje" rows="4" placeholder="Escribe tu mensaje..."></textarea>
-<button onclick="enviar()">Enviar</button>
-<div id="respuesta"></div>
-</div>
-<script>
-async function enviar() {
- const m = document.getElementById('mensaje');
- const r = document.getElementById('respuesta');
- if (!m.value.trim()) return;
- r.textContent = 'Pensando...';
- try {
-  const res = await fetch('/chat', {
-   method:'POST',
-   headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({mensaje:m.value})
-  });
-  const data = await res.json();
-  r.textContent = data.respuesta || data.error || 'Error desconocido';
- } catch(e) { r.textContent = 'No se pudo conectar.'; }
-}
-</script>
-</body>
-</html>
-"""
+api_key = os.environ.get("GEMINI_API_KEY")
+if api_key:
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel('gemini-1.5-flash')
+else:
+    model = None
 
-@app.route("/")
-def inicio():
+HTML = """<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Mi Asistente IA</title><style>body{font-family:system-ui;background:#0f0f0f;color:white;display:flex;justify-content:center;padding:20px} .box{width:100%;max-width:600px} h1{color:#c3a6ff} textarea{width:100%;padding:12px;border-radius:12px;border:1px solid #444;background:#1a1a1a;color:white;box-sizing:border-box} button{background:#a78bfa;border:0;padding:12px 20px;border-radius:10px;font-weight:bold;margin-top:10px;cursor:pointer} #respuesta{margin-top:20px;white-space:pre-wrap;background:#1e1e1e;padding:15px;border-radius:12px;min-height:20px}</style></head><body><div class="box"><h1>Mi Asistente IA</h1><p>Hola! Soy tu asistente personal. En que te ayudo?</p><textarea id="m" rows="4" placeholder="Escribe tu mensaje..."></textarea><br><button onclick="send()">Enviar</button><div id="respuesta"></div></div><script>async function send(){let m=document.getElementById('m').value;let r=document.getElementById('respuesta');if(!m.trim())return;r.textContent='Pensando...';let res=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:m})});let d=await res.json();r.textContent=d.reply;}</script></div></body></html>"""
+
+@app.route('/')
+def home():
     return render_template_string(HTML)
 
-@app.route("/chat", methods=["POST"])
+@app.route('/chat', methods=['POST'])
 def chat():
-    mensaje = request.json.get("mensaje", "").strip()
-    if not mensaje:
-        return jsonify({"error": "Escribe un mensaje"}), 400
+    if not model:
+        return jsonify({'reply': 'Falta configurar GEMINI_API_KEY en Vercel. Ve a Settings > Environment Variables.'})
+    data = request.get_json()
+    msg = data.get('message','')
+    resp = model.generate_content(msg)
+    return jsonify({'reply': resp.text})
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        return jsonify({"error": "Falta configurar la clave de Claude en el servidor."}), 500
-
-    import anthropic
-    cliente = anthropic.Anthropic(api_key=api_key)
-    respuesta = cliente.messages.create(
-        model="claude-3-5-haiku-latest",
-        max_tokens=800,
-        messages=[{"role": "user", "content": mensaje}]
-    )
-    return jsonify({"respuesta": respuesta.content[0].text})
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run()
