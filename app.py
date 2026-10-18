@@ -149,4 +149,4 @@ def chat_api():
         return jsonify({'reply':f"Uy parce, error interno: {str(e)[:200]}"})
 
 if __name__=='__main__':
-    app.run() 
+    app.run()
