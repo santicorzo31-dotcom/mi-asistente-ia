@@ -23,7 +23,7 @@ body{margin:0;font-family:-apple-system,sans-serif;background:#0f3d20;min-height
 #msg{flex:1;padding:12px 16px;border:1px solid #bbf7d0;border-radius:25px;outline:none}
 button{margin-left:10px;padding:12px 20px;background:#14532d;color:white;border:none;border-radius:25px;font-weight:bold}
 </style></head><body>
-<div class="header"><h1>🌿🙃😎😎 soy Sam - tu ayuda virtual</h1></div>
+<div class="header"><h1>🌿🙃😎😎 Soy Sam - tu ayuda virtual</h1></div>
 <div id="chat"><div id="messages"><div class="msg ia">Hola, ¿qué más? Soy tu asistente personal 😎<br><br>Tareas, cuentos, historia... tú dirás.</div></div>
 <div class="input-area"><input id="msg" placeholder="Escribe tu pregunta..." onkeypress="if(event.key==='Enter')send()"><button onclick="send()">Enviar</button></div></div>
 <script>
