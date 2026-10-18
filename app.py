@@ -6,10 +6,13 @@ app = Flask(__name__)
 API_KEY = os.environ.get("GEMINI_API_KEY")
 MODEL = "gemini-flash-lite-latest"
 
+# ESTO ES LA CLAVE: guarda la conexión abierta, no la cierra nunca
+session = requests.Session()
+session.headers.update({"Content-Type": "application/json"})
+
 HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>🌿🙃😎 Soy Sam - tu super ayudante digital 👽</title>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
 body{margin:0;font-family:-apple-system,sans-serif;background:#0f3d20;min-height:100vh;display:flex;flex-direction:column}
 .header{background:#0a2e18;padding:15px;text-align:center} .header h1{margin:0;color:#a7f3d0;font-size:17px}
@@ -43,7 +46,8 @@ async function send(){
   let input=document.getElementById('msg'); let text=input.value.trim(); if(!text) return;
   let box=document.getElementById('messages');
   box.innerHTML+=`<div class="msg user">${text}</div>`; input.value='';
-  let div=document.createElement('div'); div.className='msg ia'; div.id='curr'; box.appendChild(div);
+  let div=document.createElement('div'); div.className='msg ia'; div.id='curr'+Date.now(); box.appendChild(div);
+  let currId = div.id;
   box.scrollTop=box.scrollHeight;
   
   let resp = await fetch('/chat_stream', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:text})});
@@ -53,7 +57,7 @@ async function send(){
     let chunk = decoder.decode(value);
     chunk.split('\\n').forEach(line=>{
       if(line.startsWith('data: ')){
-        try{ let d=JSON.parse(line.slice(6)); if(d.text){ full+=d.text; document.getElementById('curr').innerText=full; box.scrollTop=box.scrollHeight; } }catch(e){}
+        try{ let d=JSON.parse(line.slice(6)); if(d.text){ full+=d.text; document.getElementById(currId).innerText=full; box.scrollTop=box.scrollHeight; } }catch(e){}
       }
     });
   }
@@ -67,41 +71,30 @@ def home():
 @app.route('/chat_stream', methods=['POST'])
 def chat_stream():
     user_msg = request.get_json().get('message','Hola')
-    
-    # Prompt ultra corto
-    prompt = f"Eres Sam 👽 super ayudante. Responde muy corto y directo: {user_msg}"
+    prompt = f"Responde corto y directo: {user_msg}"
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:streamGenerateContent?alt=sse&key={API_KEY}"
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"maxOutputTokens": 350, "temperature": 0.7}
+        "generationConfig": {"maxOutputTokens": 250, "temperature": 0.6}
     }
 
     def generate():
         try:
-            with requests.post(url, json=payload, stream=True, timeout=30) as r:
+            with session.post(url, json=payload, stream=True, timeout=15) as r:
                 for line in r.iter_lines():
-                    if line:
-                        line_str = line.decode('utf-8')
-                        if '"text"' in line_str:
-                            try:
-                                # Extraer texto rápido
-                                data = json.loads(line_str.replace('data: ',''))
-                                text = data['candidates'][0]['content']['parts'][0].get('text','')
-                                if text:
-                                    yield f"data: {json.dumps({'text': text})}\n\n"
-                            except:
-                                # Fallback parser simple
-                                try:
-                                    start = line_str.find('"text": "') + 9
-                                    end = line_str.find('"', start)
-                                    if start>9 and end>start:
-                                        t = line_str[start:end].encode().decode('unicode_escape')
-                                        yield f"data: {json.dumps({'text': t})}\n\n"
-                                except:
-                                    pass
+                    if not line: continue
+                    s = line.decode('utf-8')
+                    if '"text"' not in s: continue
+                    try:
+                        j = json.loads(s.replace('data: ',''))
+                        txt = j['candidates'][0]['content']['parts'][0].get('text','')
+                        if txt:
+                            yield f"data: {json.dumps({'text': txt})}\n\n"
+                    except:
+                        pass
         except Exception as e:
-            yield f"data: {json.dumps({'text': f'Error: {str(e)[:50]}'})}\n\n"
+            yield f"data: {json.dumps({'text': 'Dale enviar de nuevo, se trabó un segundo'})}\n\n"
 
     return Response(generate(), mimetype='text/event-stream')
 
