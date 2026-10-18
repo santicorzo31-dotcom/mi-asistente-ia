@@ -13,7 +13,7 @@ def chat():
         if not api_key:
             return jsonify({'reply': 'Falta poner GEMINI_API_KEY en Vercel > Settings > Environment Variables'})
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.0-flash')
+        model = genai.GenerativeModel('gemini-3.8-flash')
         data = request.get_json()
         msg = data.get('message','Hola')
         resp = model.generate_content(msg)
