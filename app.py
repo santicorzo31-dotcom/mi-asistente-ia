@@ -1,6 +1,7 @@
 import os
 from flask import Flask, request, jsonify, render_template_string
 from google import genai
+import time
 
 app = Flask(__name__)
 
@@ -36,7 +37,7 @@ async function send(){
    let html=marked.parse(d.reply);
    let div=document.createElement('div'); div.className='msg ia'; div.innerHTML=html;
    box.appendChild(div); box.scrollTop=box.scrollHeight;
- }catch(e){ document.getElementById(tid).innerText='Error de conexión, intenta de nuevo'; }
+ }catch(e){ document.getElementById(tid).innerText='Error, intenta de nuevo'; }
 }
 </script></body></html>"""
 
@@ -48,33 +49,34 @@ def home():
 def chat():
     try:
         api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            return jsonify({'reply': 'Falta la API KEY en Vercel'})
         client = genai.Client(api_key=api_key)
         user_msg = request.get_json().get('message','Hola')
         
         prompt = f"""Eres un asistente amigable. 
-        REGLA: NUNCA uses $ o $$ o LaTeX. Escribe formulas en texto simple: E = m x c^2, a^2 + b^2 = c^2
+        NUNCA uses $ o $$ o LaTeX. Escribe formulas en texto simple: E = m x c^2, a^2 + b^2 = c^2
         Pregunta: {user_msg}"""
 
-        # Lista de modelos para probar si uno falla
-        modelos = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash', 'gemini-1.5-flash-8b']
+        # SOLO modelos que existen
+        modelos = ['gemini-2.0-flash', 'gemini-1.5-flash']
         
         last_error = ""
         for modelo in modelos:
             try:
                 resp = client.models.generate_content(model=modelo, contents=prompt)
-                return jsonify({'reply': resp.text})
+                if resp.text:
+                    return jsonify({'reply': resp.text})
             except Exception as e:
                 last_error = str(e)
-                if "503" in last_error or "UNAVAILABLE" in last_error or "high demand" in last_error:
-                    continue  # prueba el siguiente modelo
-                else:
-                    # otro error, sigue intentando
-                    continue
+                time.sleep(0.5) # espera un poquito y prueba el otro
+                continue
         
-        return jsonify({'reply': f'El servicio de Google está muy ocupado ahora mismo. Intenta de nuevo en 30 segundos. (Detalle: {last_error})'})
+        # Si llega aqui es que Google esta saturado
+        return jsonify({'reply': 'Google está un poco ocupado ahora mismo, espera 10 segundos y dale a Enviar de nuevo porfa 🙏'})
 
     except Exception as e:
-        return jsonify({'reply': f'Error: {str(e)}'})
+        return jsonify({'reply': f'Error temporal, intenta de nuevo: {str(e)[:100]}'})
 
 if __name__ == '__main__':
     app.run()
