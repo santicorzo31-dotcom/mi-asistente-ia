@@ -98,3 +98,4 @@ def chat():
  except Exception as e:
   print(e)
   return jsonify({"reply":"Error, envia de nuevo 🙏"}) 
+
