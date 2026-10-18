@@ -45,26 +45,31 @@ def home():
 def chat():
     try:
         api_key = os.environ.get("GEMINI_API_KEY")
-        if not api_key:
-            return jsonify({'reply': 'No hay API KEY en Vercel. Ve a Settings > Env Variables'})
-        
         client = genai.Client(api_key=api_key)
         user_msg = request.get_json().get('message','Hola')
         prompt = f"Responde corto y amigable. NUNCA uses $ o LaTeX. Pregunta: {user_msg}"
 
-        # Probamos rapido sin dormir, para que no se cuelgue
-        try:
-            resp = client.models.generate_content(model='gemini-2.0-flash-lite', contents=prompt)
-            return jsonify({'reply': resp.text})
-        except:
+        # MODELOS NUEVOS 2026 - estos son los que Google deja usar a keys nuevas
+        modelos_nuevos = [
+            'gemini-flash-latest',
+            'gemini-flash-lite-latest',
+            'gemini-2.5-flash',
+            'gemini-2.5-flash-lite'
+        ]
+        
+        last_error = ""
+        for modelo in modelos_nuevos:
             try:
-                resp = client.models.generate_content(model='gemini-1.5-flash', contents=prompt)
+                resp = client.models.generate_content(model=modelo, contents=prompt)
                 return jsonify({'reply': resp.text})
-            except Exception as e2:
-                return jsonify({'reply': f'Google está saturado 1 min. Vuelve a darle a Enviar. Error: {str(e2)[:80]}'})
+            except Exception as e:
+                last_error = str(e)
+                continue
+        
+        return jsonify({'reply': f'No se pudo conectar a ningún modelo nuevo. Último error: {last_error[:200]}'})
 
     except Exception as e:
-        return jsonify({'reply': f'Error: {str(e)[:100]}'})
+        return jsonify({'reply': f'Error: {str(e)[:200]}'})
 
 if __name__ == '__main__':
-    app.run() 
+    app.run()
