@@ -6,25 +6,22 @@ app = Flask(__name__)
 
 HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sam - Tu Ayudante Virtual</title>
+<title>Mi Asistente IA</title>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 <style>
 body{margin:0;font-family:-apple-system,sans-serif;background:#0f3d20;min-height:100vh;display:flex;flex-direction:column}
 .header{background:#0a2e18;padding:15px;text-align:center} .header h1{margin:0;color:#a7f3d0;font-size:22px}
-#chat{max-width:700px;width:100%;margin:20px auto;background:white;border-radius:20px;display:flex;flex-direction:column;overflow:hidden;height:78vh;box-shadow:0 10px 40px rgba(0,0,0,0.3)}
-#messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px;background:white}
-.msg{max-width:85%;padding:12px 16px;border-radius:18px;line-height:1.6}
-.user{align-self:flex-end;background:#bbf7d0;color:#052e16;border-bottom-right-radius:4px}
-.ia{align-self:flex-start;background:#14532d;color:white;border-bottom-left-radius:4px}
-.input-area{display:flex;padding:15px;border-top:1px solid #eee;background:#f9fafb}
+#chat{max-width:700px;width:95%;margin:15px auto;background:white;border-radius:20px;display:flex;flex-direction:column;overflow:hidden;height:80vh}
+#messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px}
+.msg{max-width:85%;padding:12px 16px;border-radius:18px;line-height:1.5;word-wrap:break-word}
+.user{align-self:flex-end;background:#bbf7d0;color:#052e16}
+.ia{align-self:flex-start;background:#14532d;color:white}
+.input-area{display:flex;padding:12px;border-top:1px solid #eee;background:#f9fafb}
 #msg{flex:1;padding:12px 16px;border:1px solid #bbf7d0;border-radius:25px;outline:none}
-button{margin-left:10px;padding:12px 20px;background:#14532d;color:white;border:none;border-radius:25px;font-weight:bold}
+button{margin-left:8px;padding:12px 18px;background:#14532d;color:white;border:none;border-radius:25px;font-weight:bold}
 </style></head><body>
-<div class="header"><h1>🌿🙃😎😎 Soy Sam - tu ayudante virtual</h1></div>
-<div id="chat"><div id="messages"><div class="msg ia">Hola, ¿qué más? Soy Sam, tu ayudante virtual 😎<br><br>Tareas, cuentos, historia... tú dirás.</div></div>
+<div class="header"><h1>🌿 Mi Asistente IA</h1></div>
+<div id="chat"><div id="messages"><div class="msg ia">Hola, ¿qué más? Soy tu asistente personal 😎<br><br>Tareas, cuentos, historia... tú dirás.</div></div>
 <div class="input-area"><input id="msg" placeholder="Escribe..." onkeypress="if(event.key==='Enter')send()"><button onclick="send()">Enviar</button></div></div>
 <script>
 async function send(){
@@ -33,22 +30,13 @@ async function send(){
  box.innerHTML+=`<div class="msg user">${text}</div>`; input.value='';
  let tid='t'+Date.now(); box.innerHTML+=`<div id="${tid}" class="msg ia">Escribiendo... ⏳</div>`;
  box.scrollTop=box.scrollHeight;
- let r=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text})});
- let d=await r.json(); document.getElementById(tid).remove();
- let html=marked.parse(d.reply);
- let div=document.createElement('div'); div.className='msg ia'; div.innerHTML=html;
- box.appendChild(div);
- if(window.renderMathInElement){
-   renderMathInElement(div, {
-     delimiters: [
-       {left:'$$', right:'$$', display:true},
-       {left:'$', right:'$', display:false},
-       {left:'\\(', right:'\\)', display:false},
-       {left:'\\[', right:'\\]', display:true}
-     ], throwOnError:false
-   });
- }
- box.scrollTop=box.scrollHeight;
+ try{
+   let r=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text})});
+   let d=await r.json(); document.getElementById(tid).remove();
+   let html=marked.parse(d.reply);
+   let div=document.createElement('div'); div.className='msg ia'; div.innerHTML=html;
+   box.appendChild(div); box.scrollTop=box.scrollHeight;
+ }catch(e){ document.getElementById(tid).innerText='Error de conexión, intenta de nuevo'; }
 }
 </script></body></html>"""
 
@@ -58,4 +46,35 @@ def home():
 
 @app.route('/chat', methods=['POST'])
 def chat():
-   
+    try:
+        api_key = os.environ.get("GEMINI_API_KEY")
+        client = genai.Client(api_key=api_key)
+        user_msg = request.get_json().get('message','Hola')
+        
+        prompt = f"""Eres un asistente amigable. 
+        REGLA: NUNCA uses $ o $$ o LaTeX. Escribe formulas en texto simple: E = m x c^2, a^2 + b^2 = c^2
+        Pregunta: {user_msg}"""
+
+        # Lista de modelos para probar si uno falla
+        modelos = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash', 'gemini-1.5-flash-8b']
+        
+        last_error = ""
+        for modelo in modelos:
+            try:
+                resp = client.models.generate_content(model=modelo, contents=prompt)
+                return jsonify({'reply': resp.text})
+            except Exception as e:
+                last_error = str(e)
+                if "503" in last_error or "UNAVAILABLE" in last_error or "high demand" in last_error:
+                    continue  # prueba el siguiente modelo
+                else:
+                    # otro error, sigue intentando
+                    continue
+        
+        return jsonify({'reply': f'El servicio de Google está muy ocupado ahora mismo. Intenta de nuevo en 30 segundos. (Detalle: {last_error})'})
+
+    except Exception as e:
+        return jsonify({'reply': f'Error: {str(e)}'})
+
+if __name__ == '__main__':
+    app.run()
