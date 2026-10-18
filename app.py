@@ -10,7 +10,7 @@ HTML = """<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport"
 #c{max-width:700px;width:100%;margin:0 auto;background:#fff;flex:1;display:flex;flex-direction:column;overflow:hidden}
 #m{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:10px}
 .u{align-self:flex-end;background:#bbf7d0;padding:10px 14px;border-radius:18px;max-width:80%}
-.i{align-self:flex-start;background:#14532d;color:#fff;padding:14px;border-radius:18px;max-width:88%}
+.i{align-self:flex-start;background:#14532d;color:#fff;padding:14px;border-radius:18px;max-width:88%;white-space:pre-wrap}
 .i img{max-width:100%;border-radius:12px}
 .b{display:flex;padding:12px;gap:8px;border-top:1px solid #eee}
 #q{flex:1;padding:12px;border-radius:25px;border:1px solid #ccc;outline:none}
@@ -35,6 +35,30 @@ async function send(photo=false){
 }
 </script></body></html>"""
 
+def call_gemini(prompt, image_b64=None):
+    K = os.environ.get("GEMINI_API_KEY")
+    if not K:
+        return "Falta GEMINI_API_KEY en Vercel > Settings > Environment Variables"
+    
+    # Modelos nuevos 2026 - probamos en orden
+    models = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-flash-latest", "gemini-1.5-flash-latest"]
+    
+    for model in models:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={K}"
+            parts = [{"text": prompt}]
+            if image_b64:
+                b64 = image_b64.split(",")[1] if "," in image_b64 else image_b64
+                parts.append({"inline_data": {"mime_type": "image/jpeg", "data": b64}})
+            
+            r = requests.post(url, json={"contents": [{"parts": parts}]}, timeout=25)
+            j = r.json()
+            if 'candidates' in j and j['candidates']:
+                return j['candidates'][0]['content']['parts'][0]['text']
+        except Exception as e:
+            continue
+    return f"No se pudo conectar a Gemini. Respuesta: {str(j)[:400]}"
+
 @app.route('/')
 def home():
     return render_template_string(HTML)
@@ -43,38 +67,20 @@ def home():
 def chat():
     try:
         data = request.get_json()
-        msg = data.get('message','hola')
+        msg = data.get('message','Hola')
         img = data.get('image')
-        K = os.environ.get('GEMINI_API_KEY')
 
-        # Imagen realista
-        if "imagen" in msg.lower() or "crea" in msg.lower():
-            if not img and ("crea" in msg.lower() or "imagen" in msg.lower() and len(msg)>5):
-                p = msg.replace("crea una imagen de","").replace("crea imagen","").replace("imagen de","").strip() or "alien"
-                prompt = f"{p}, photorealistic, 8k, detailed, cinematic"
-                url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt)}?width=1024&height=1024&model=flux&seed={random.randint(1,99999)}"
-                return jsonify({"reply": f"**{p}**\n\n![img]({url})"})
+        # Imagen realista con Pollinations (gratis y no falla)
+        if "imagen" in msg.lower() and len(msg) > 5 and not img:
+            p = msg.lower().replace("crea una imagen de","").replace("crea imagen","").replace("imagen de","").replace("crea","").strip() or "alien cute"
+            prompt = f"{p}, photorealistic, 8k, ultra detailed, cinematic lighting"
+            url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt)}?width=1024&height=1024&model=flux&seed={random.randint(1,999999)}"
+            return jsonify({"reply": f"Aquí tienes **{p}** 👽\n\n![imagen]({url})"})
 
-        if not K:
-            return jsonify({"reply": "Falta la GEMINI_API_KEY en Vercel > Settings > Environment Variables. Agrégala y haz Redeploy."})
-
-        # Llamada a Gemini con modelo que SI existe
-        if img:
-            b64 = img.split(",")[1] if "," in img else img
-            url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={K}"
-            payload = {"contents":[{"parts":[{"text":msg},{"inline_data":{"mime_type":"image/jpeg","data":b64}}]}]}
-            r = requests.post(url, json=payload, timeout=20)
-            j = r.json()
-            if 'candidates' in j:
-                return jsonify({"reply": j['candidates'][0]['content']['parts'][0]['text']})
-            return jsonify({"reply": f"Error Gemini: {str(j)[:300]}"})
-
-        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={K}"
-        r = requests.post(url, json={"contents":[{"parts":[{"text":msg}]}]}, timeout=15)
-        j = r.json()
-        if 'candidates' in j:
-            return jsonify({"reply": j['candidates'][0]['content']['parts'][0]['text']})
-        return jsonify({"reply": f"Error: {j}"})
-
+        reply = call_gemini(msg, img)
+        return jsonify({"reply": reply})
     except Exception as e:
-        return jsonify({"reply": f"Error servidor: {str(e)}"}) 
+        return jsonify({"reply": f"Error: {str(e)}"})
+
+if __name__ == '__main__':
+    app.run() 
