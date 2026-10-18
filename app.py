@@ -1,24 +1,31 @@
 import os
 from flask import Flask, request, jsonify, render_template_string
+from google import genai
+
 app = Flask(__name__)
-HTML = """<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Mi Asistente IA</title><style>body{font-family:system-ui;background:#0f0f0f;color:white;display:flex;justify-content:center;padding:20px}.box{width:100%;max-width:600px}h1{color:#c3a6ff}textarea{width:100%;padding:12px;border-radius:12px;border:1px solid #444;background:#1a1a1a;color:white;box-sizing:border-box}button{background:#a78bfa;border:0;padding:12px 20px;border-radius:10px;font-weight:bold;margin-top:10px}#r{margin-top:20px;white-space:pre-wrap;background:#1e1e1e;padding:15px;border-radius:12px}</style></head><body><div class="box"><h1>Mi Asistente IA</h1><p>Hola! Soy tu asistente.</p><textarea id="m" rows="4" placeholder="Escribe..."></textarea><br><button onclick="send()">Enviar</button><div id="r"></div></div><script>async function send(){let m=document.getElementById('m').value;let r=document.getElementById('r');if(!m.trim())return;r.textContent='Pensando...';let res=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:m})});let d=await res.json();r.textContent=d.reply;}</script></body></html>"""
+
+HTML = """<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>body{font-family:sans-serif;max-width:600px;margin:auto;padding:20px}#chat{border:1px solid #ccc;height:300px;overflow:auto;padding:10px}</style>
+</head><body><h2>Mi Asistente IA</h2><div id="chat"></div><input id="msg" placeholder="Escribe..." style="width:80%"><button onclick="send()">Enviar</button>
+<script>async function send(){let m=document.getElementById('msg').value;let c=document.getElementById('chat');c.innerHTML+='<p><b>Tu:</b> '+m+'</p>';let r=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:m})});let d=await r.json();c.innerHTML+='<p><b>IA:</b> '+d.reply+'</p>';document.getElementById('msg').value='';}</script></body></html>"""
+
 @app.route('/')
 def home():
     return render_template_string(HTML)
+
 @app.route('/chat', methods=['POST'])
 def chat():
     try:
-        import google.generativeai as genai
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
-            return jsonify({'reply': 'Falta poner GEMINI_API_KEY en Vercel > Settings > Environment Variables'})
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-3.8-flash')
+            return jsonify({'reply': 'Falta poner GEMINI_API_KEY en Vercel'})
+        client = genai.Client(api_key=api_key)
         data = request.get_json()
         msg = data.get('message','Hola')
-        resp = model.generate_content(msg)
+        resp = client.models.generate_content(model='gemini-2.5-flash', contents=msg)
         return jsonify({'reply': resp.text})
     except Exception as e:
         return jsonify({'reply': f'Error: {str(e)}'})
+
 if __name__ == '__main__':
     app.run() 
