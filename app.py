@@ -9,23 +9,25 @@ HTML = """<!DOCTYPE html>
 <title>Mi Asistente IA</title>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
-body{margin:0;font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;background: linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;display:flex;flex-direction:column}
-.header{background:rgba(255,255,255,0.95);padding:15px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,0.1)} .header h1{margin:0;color:#667eea;font-size:22px}
-#chat{flex:1;max-width:700px;width:100%;margin:20px auto;background:white;border-radius:20px;box-shadow:0 10px 40px rgba(0,0,0,0.2);display:flex;flex-direction:column;overflow:hidden;height:70vh}
-#messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f3d20;min-height:100vh;display:flex;flex-direction:column}
+.header{background:#0a2e18;padding:15px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,0.3)} .header h1{margin:0;color:#a7f3d0;font-size:22px}
+#chat{flex:1;max-width:700px;width:100%;margin:20px auto;background:white;border-radius:20px;box-shadow:0 10px 40px rgba(0,0,0,0.3);display:flex;flex-direction:column;overflow:hidden;height:75vh}
+#messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px;background:white}
 .msg{max-width:80%;padding:12px 16px;border-radius:18px;line-height:1.5;word-wrap:break-word}
-.user{align-self:flex-end;background:#667eea;color:white;border-bottom-right-radius:4px}
-.ia{align-self:flex-start;background:#f1f1f5;color:#333;border-bottom-left-radius:4px}
-.ia h1,.ia h2,.ia h3{margin:10px 0 5px 0;color:#667eea}
+.user{align-self:flex-end;background:#bbf7d0;color:#052e16;border-bottom-right-radius:4px;border:1px solid #86efac;font-weight:500}
+.ia{align-self:flex-start;background:#14532d;color:white;border-bottom-left-radius:4px}
+.ia h1,.ia h2,.ia h3{margin:10px 0 5px 0;color:#bbf7d0}
 .ia ul{margin:5px 0;padding-left:20px}
-.input-area{display:flex;padding:15px;border-top:1px solid #eee;background:#fafafa}
-#msg{flex:1;padding:12px 16px;border:1px solid #ddd;border-radius:25px;outline:none;font-size:15px}
-button{margin-left:10px;padding:12px 20px;background:#667eea;color:white;border:none;border-radius:25px;cursor:pointer;font-weight:bold}
+.ia strong{color:#bbf7d0}
+.input-area{display:flex;padding:15px;border-top:1px solid #e5e7eb;background:#f9fafb}
+#msg{flex:1;padding:12px 16px;border:1px solid #bbf7d0;border-radius:25px;outline:none;font-size:15px}
+#msg:focus{border-color:#14532d}
+button{margin-left:10px;padding:12px 20px;background:#14532d;color:white;border:none;border-radius:25px;cursor:pointer;font-weight:bold}
 button:disabled{opacity:0.5}
-.typing{font-style:italic;color:#888}
+.typing{font-style:italic;color:#a7f3d0}
 </style></head><body>
-<div class="header"><h1>🤖 Mi Asistente IA - Santi</h1></div>
-<div id="chat"><div id="messages"><div class="msg ia">¡Hola Santi! 👋 Soy tu asistente. Pregúntame lo que quieras sobre Colombia, tareas, cuentos...</div></div>
+<div class="header"><h1>🌿 Mi Asistente IA</h1></div>
+<div id="chat"><div id="messages"><div class="msg ia">¡Yoo! 👋 ¿Qué más? Soy tu asistente, me puedes preguntar lo que sea 😎<br><br>Tareas, cuentos, historia... tú dirás.</div></div>
 <div class="input-area"><input id="msg" placeholder="Escribe tu pregunta..." onkeypress="if(event.key==='Enter')send()"><button id="btn" onclick="send()">Enviar</button></div></div>
 <script>
 let sending=false;
