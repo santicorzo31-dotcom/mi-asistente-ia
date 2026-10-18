@@ -1,8 +1,12 @@
 import os
 from flask import Flask, request, jsonify, render_template_string
 from google import genai
+from google.genai import types
 
 app = Flask(__name__)
+
+# Cliente global = no lo crea cada vez, gana 1 segundo
+client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -20,15 +24,15 @@ body{margin:0;font-family:-apple-system,sans-serif;background:#0f3d20;min-height
 #msg{flex:1;padding:12px 16px;border:1px solid #bbf7d0;border-radius:25px;outline:none}
 button{margin-left:8px;padding:12px 18px;background:#14532d;color:white;border:none;border-radius:25px;font-weight:bold}
 </style></head><body>
-<div class="header"><h1>🌿 Mi Asistente IA</h1></div>
-<div id="chat"><div id="messages"><div class="msg ia">Hola, ¿qué más? Soy tu asistente personal 😎<br>Tareas, cuentos, historia... tú dirás.</div></div>
-<div class="input-area"><input id="msg" placeholder="Escribe..." onkeypress="if(event.key==='Enter')send()"><button onclick="send()">Enviar</button></div></div>
+<div class="header"><h1>⚡ Mi Asistente IA Turbo</h1></div>
+<div id="chat"><div id="messages"><div class="msg ia">Hola, ¿qué más? Estoy en modo turbo ⚡<br>Tú dirás.</div></div>
+<div class="input-area"><input id="msg" placeholder="Escribe..." autofocus onkeypress="if(event.key==='Enter')send()"><button onclick="send()">Enviar</button></div></div>
 <script>
 async function send(){
  let input=document.getElementById('msg'); let text=input.value.trim(); if(!text) return;
  let box=document.getElementById('messages');
  box.innerHTML+=`<div class="msg user">${text}</div>`; input.value='';
- let tid='t'+Date.now(); box.innerHTML+=`<div id="${tid}" class="msg ia">Escribiendo... ⏳</div>`;
+ let tid='t'+Date.now(); box.innerHTML+=`<div id="${tid}" class="msg ia">⚡</div>`;
  box.scrollTop=box.scrollHeight;
  let r=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text})});
  let d=await r.json(); document.getElementById(tid).remove();
@@ -44,32 +48,30 @@ def home():
 @app.route('/chat', methods=['POST'])
 def chat():
     try:
-        api_key = os.environ.get("GEMINI_API_KEY")
-        client = genai.Client(api_key=api_key)
         user_msg = request.get_json().get('message','Hola')
-        prompt = f"Responde corto y amigable. NUNCA uses $ o LaTeX. Pregunta: {user_msg}"
+        
+        # Prompt corto = responde más rápido
+        prompt = f"Responde muy corto y directo. Pregunta: {user_msg}"
 
-        # MODELOS NUEVOS 2026 - estos son los que Google deja usar a keys nuevas
-        modelos_nuevos = [
-            'gemini-flash-latest',
-            'gemini-flash-lite-latest',
-            'gemini-2.5-flash',
-            'gemini-2.5-flash-lite'
-        ]
-        
-        last_error = ""
-        for modelo in modelos_nuevos:
-            try:
-                resp = client.models.generate_content(model=modelo, contents=prompt)
-                return jsonify({'reply': resp.text})
-            except Exception as e:
-                last_error = str(e)
-                continue
-        
-        return jsonify({'reply': f'No se pudo conectar a ningún modelo nuevo. Último error: {last_error[:200]}'})
+        # CONFIG TURBO: sin pensar mucho, respuesta corta
+        resp = client.models.generate_content(
+            model='gemini-flash-lite-latest',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                max_output_tokens=300, # responde corto = más rápido
+                temperature=0.7,
+                thinking_config=types.ThinkingConfig(thinking_budget=0) # 0 pensamiento = turbo
+            )
+        )
+        return jsonify({'reply': resp.text})
 
     except Exception as e:
-        return jsonify({'reply': f'Error: {str(e)[:200]}'})
+        # Si el lite falla, usa el flash normal
+        try:
+            resp = client.models.generate_content(model='gemini-flash-latest', contents=user_msg)
+            return jsonify({'reply': resp.text})
+        except Exception as e2:
+            return jsonify({'reply': f'Error: {str(e2)[:100]}'})
 
 if __name__ == '__main__':
     app.run()
