@@ -22,7 +22,7 @@ def chat():
         client = genai.Client(api_key=api_key)
         data = request.get_json()
         msg = data.get('message','Hola')
-        resp = client.models.generate_content(model='gemini-2.5-flash', contents=msg)
+        resp = client.models.generate_content(model='gemini-3.8-flash', contents=msg)
         return jsonify({'reply': resp.text})
     except Exception as e:
         return jsonify({'reply': f'Error: {str(e)}'})
