@@ -19,28 +19,63 @@ body{margin:0;font-family:-apple-system,sans-serif;background:#0f3d20;display:fl
 #messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px}
 .user{align-self:flex-end;background:#bbf7d0;padding:10px 14px;border-radius:18px;max-width:85%}
 .ia{align-self:flex-start;background:#14532d;color:white;padding:14px 16px;border-radius:18px;max-width:88%;line-height:1.6}
-.ia p{margin:8px 0}
-.ia strong{color:#a7f3d0}
 .bar{display:flex;padding:10px;gap:6px;border-top:1px solid #eee;background:#f9fafb;align-items:center}
 #msg{flex:1;padding:12px 16px;border-radius:25px;border:1px solid #bbf7d0;outline:none}
 button{border:none;border-radius:25px;padding:10px 14px;font-weight:bold;cursor:pointer}
 .send{background:#14532d;color:white}
-.mic{background:#e8f5e9}
+.mic{background:#e8f5e9;font-size:18px;transition:0.2s}
+.mic.rec{background:#ff3b30;color:white;animation:pulse 1s infinite}
+@keyframes pulse{0%{transform:scale(1)}50%{transform:scale(1.1)}100%{transform:scale(1)}}
 </style></head><body>
 <div class="header">🌿🙃😎 Soy Sam - tu super ayudante digital 👽</div>
-<div id="chat"><div id="messages"><div class="ia">Soy Sam 👽 tu super ayudante digital. Si me pides fórmulas te las explico con manzanas 🍎 para que entiendas de una.</div></div>
+<div id="chat"><div id="messages"><div class="ia">Soy Sam 👽 tu super ayudante para TODO: tareas, historia, cuentos, inglés, fórmulas... lo que necesites. Si es fórmula te la explico con manzanas 🍎</div></div>
 <div class="bar">
-<button class="mic" onclick="voice()">🎤</button>
-<input id="msg" placeholder="Ej: explícame A = pi r²..." onkeypress="if(event.key==='Enter')send()">
+<button id="micBtn" class="mic" onclick="toggleMic()">🎤</button>
+<input id="msg" placeholder="Escribe o habla..." onkeypress="if(event.key==='Enter')send()">
 <button class="send" onclick="send()">Enviar</button>
 </div></div>
 <script>
-let rec;
-function voice(){
-  let SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR) return alert('Usa Chrome');
-  rec=new SR(); rec.lang='es-ES'; rec.onresult=e=>{document.getElementById('msg').value=e.results[0][0].transcript; send();}; rec.start();
+let recognition = null;
+let isRecording = false;
+
+function toggleMic(){
+  let SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ alert('Tu celular no deja micro, usa Chrome y asegurate de estar en https'); return; }
+  
+  if(!recognition){
+    recognition = new SR();
+    recognition.lang = 'es-ES';
+    recognition.interimResults = false;
+    recognition.continuous = false;
+    
+    recognition.onstart = ()=>{
+      isRecording = true;
+      document.getElementById('micBtn').classList.add('rec');
+      document.getElementById('micBtn').innerText = '⏹️';
+    };
+    recognition.onresult = (e)=>{
+      let text = e.results[0][0].transcript;
+      document.getElementById('msg').value = text;
+      send();
+    };
+    recognition.onend = ()=>{
+      isRecording = false;
+      document.getElementById('micBtn').classList.remove('rec');
+      document.getElementById('micBtn').innerText = '🎤';
+    };
+    recognition.onerror = (e)=>{
+      console.log(e);
+      isRecording = false;
+      document.getElementById('micBtn').classList.remove('rec');
+      document.getElementById('micBtn').innerText = '🎤';
+      if(e.error == 'not-allowed') alert('Dale permiso al micro arriba en el candadito 🔒');
+    };
+  }
+
+  if(isRecording){ recognition.stop(); }
+  else { try{ recognition.start(); }catch(e){ recognition.stop(); } }
 }
+
 function renderMath(){
   if(window.renderMathInElement){
     renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});
@@ -54,8 +89,8 @@ async function send(){
     let r=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t})});
     let j=await r.json();
     d.innerHTML = marked.parse(j.reply);
-    setTimeout(renderMath, 100);
-  }catch(e){ d.innerText='Dale enviar de nuevo'; }
+    setTimeout(renderMath, 150);
+  }catch(e){ d.innerText='Error, dale enviar de nuevo'; }
   b.scrollTop=b.scrollHeight;
 }
 </script></body></html>"""
@@ -69,26 +104,28 @@ def chat():
     try:
         msg = request.get_json().get('message','Hola')
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key={API_KEY}"
-        prompt = f"""Eres Sam, super ayudante.
-INSTRUCCIONES IMPORTANTES:
-- NUNCA pegues palabras: escribe "como una pizza entera" no "comounapizzaentera".
-- Usa lista con saltos de linea, no todo pegado.
-- NO uses ** ni * excesivo, usa texto normal limpio.
-- Si es formula, ponla asi: $A = \\pi r^2$ en una linea separada.
-- Explica en 3 puntos cortos: 1) Que es cada letra 2) Ejemplo con numeros 3) Truco.
-- Max 120 palabras, facil de entender.
+        # PROMPT GENERAL, NO SOLO FORMULAS
+        prompt = f"""Eres Sam 👽, alias 🌿🙃😎 Soy Sam - tu super ayudante digital.
+Eres un asistente GENERAL para todo: tareas del colegio, historia, ingles, ciencias, cuentos, chistes, consejos, programacion, de todo lo que te pida Santi.
+
+Reglas:
+1. Si es pregunta normal, responde normal, amigable y corto.
+2. SOLO si es una formula matematica, ahi si explicala con manzanas, en 3 pasos separados y con ejemplo con numeros.
+3. Si hay formula usa $...$ para que se vea bonita.
+4. Nunca pegues palabras, escribe con espacios.
+5. Responde max 150 palabras, facil de entender.
 
 Usuario: {msg}"""
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"maxOutputTokens": 300, "temperature": 0.6}
+            "generationConfig": {"maxOutputTokens": 400, "temperature": 0.7}
         }
-        r = sess.post(url, json=payload, timeout=12)
+        r = sess.post(url, json=payload, timeout=15)
         text = r.json()['candidates'][0]['content']['parts'][0]['text']
         return jsonify({"reply": text})
     except Exception as e:
         print(e)
-        return jsonify({"reply": "Dale enviar de nuevo 🙏"})
+        return jsonify({"reply": "Se trabo un seg, dale enviar de nuevo 🙏"})
 
 if __name__ == '__main__':
     app.run() 
