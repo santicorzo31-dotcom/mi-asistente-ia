@@ -40,7 +40,7 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,sans-serif;background
 
 <div class="menu" id="menu">
 <button onclick="openFile()">📎 Subir archivo</button>
-<button onclick="openCamera()">📸 Tomar foto</button>
+<button onclick="openCamera()"></button>
 <button onclick="createImg()">🖼️ Crear imagen realista</button>
 <button onclick="closeMenu()">✖ Cerrar</button>
 </div>
